@@ -66,7 +66,7 @@ layout = dmc.Container([
                         data=QUERY_TEMPLATES,
                         placeholder="Select a template",
                     ),
-                    html.Div(id="template-description", className="text-muted"),
+                    html.Div(id="template-description-query", className="text-muted"),
                     dmc.Button(
                         "Use Template",
                         id="use-template-button",
@@ -120,7 +120,7 @@ layout = dmc.Container([
 
 # Callback functions defined directly in the page file
 @callback(
-    Output("template-description", "children"),
+    Output("template-description-query", "children"),
     Input("template-select", "value")
 )
 def update_template_description(value):

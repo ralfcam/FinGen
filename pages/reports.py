@@ -47,7 +47,7 @@ layout = dmc.Container([
                     placeholder="Select a template",
                     className="mb-3"
                 ),
-                html.Div(id='template-description', className="text-muted mb-3"),
+                html.Div(id='template-description-reports', className="text-muted mb-3"),
                 
                 html.H5("Content Sections", className="card-title mt-4 mb-3"),
                 MultiSelect(
@@ -168,7 +168,7 @@ layout = dmc.Container([
 
 # Define callbacks directly in the page
 @callback(
-    Output("template-description", "children"),
+    Output("template-description-reports", "children"),
     Input("template-select", "value")
 )
 def update_template_description(value):

@@ -3,16 +3,24 @@ Main entry point for the FinGen application.
 Initializes the Dash application and registers callbacks.
 """
 
-from dash import Dash, html, dcc
+from dash import Dash, html, dcc, _dash_renderer
 import dash
 from dash_iconify import DashIconify
 from dash_mantine_components import MantineProvider, NavLink, Stack, Container, Paper
+from utils.logging_utils import setup_logger, create_error_handler
+
+# Use a specific React version that's compatible with dash-mantine-components
+_dash_renderer._set_react_version("18.2.0")
+
+# Setup application logger
+logger = setup_logger(log_name='fingen')
 
 # Initialize the Dash app with support for pages
 app = Dash(
     __name__,
     use_pages=True,  # Enable Dash Pages
-    suppress_callback_exceptions=True
+    suppress_callback_exceptions=True,
+    on_error=create_error_handler(logger),  # Add global error handler
 )
 
 # Import pages AFTER app instantiation
@@ -89,4 +97,4 @@ app.layout = MantineProvider(
 )
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)  # Enable debug mode to see more detailed error messages

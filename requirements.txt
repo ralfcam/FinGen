@@ -1,2 +1,4 @@
-dash
-dash-mantine-components
+pandas==2.2.3
+dash>=2.18.00
+dash-mantine-components==1.0.0
+dash-iconify

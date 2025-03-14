@@ -61,5 +61,8 @@ coverage.xml
 assets/.DS_Store 
 
 # Docs
-plotly_dash_docs/
-dcm_docs/
+/docs
+
+# Cursor
+.cursorignore
+.cursorrules

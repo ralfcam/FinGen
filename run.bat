@@ -64,10 +64,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Run the application
+:: Kill any existing Python processes that might be running the app
+taskkill /f /im python.exe /fi "WINDOWTITLE eq C:\Users\joser\PycharmProjects\FinGen*" >nul 2>&1
+
+:: Run the application with custom environment variable to avoid log file permission issues
 echo Starting FinGen...
 echo [%date% %time%] Starting FinGen... >> %LOGFILE%
 echo [%date% %time%] Command: python app.py >> %LOGFILE%
+set FINGEN_LOG_NAME=fingen_app
 python app.py >> %LOGFILE% 2>&1
 set APP_EXIT_CODE=%errorlevel%
 

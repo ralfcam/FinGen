@@ -9,6 +9,8 @@ from dash import (
     ClientsideFunction,
     register_page,
 )
+import dash_mantine_components as dmc
+from dash_iconify import DashIconify
 from flask import request, Response
 from ollama import Client  # Changed from ollama_python.client import Ollama
 import json # Import json for error handling
@@ -37,30 +39,82 @@ except Exception as e:
     ollama_client = None # Handle initialization error
 
 # --- Layout ---
-layout = html.Div(
+layout = dmc.Container(
     [
-        html.H1("Ollama Chat"),
-        dcc.Input(
-            id="chat-prompt", 
-            placeholder="Ask Ollama...", 
-            type="text", 
-            style={'width': '80%'},
-            n_submit=0,  # Enable Enter key submissions
-        ),
-        html.Button("Submit", id="submit-chat", n_clicks=0),
-        html.H2("Response Stream"),
-        html.Div( # Use Div for better markdown rendering control
-            id="chat-response-window",
-            style={
-                "max-width": "800px",
-                "text-align": "justify",
-                "border": "1px solid #ccc",
-                "padding": "10px",
-                "min-height": "200px",
-                "white-space": "pre-wrap", # Preserve whitespace and line breaks
-            },
-        ),
-    ]
+        dmc.Stack(
+            [
+                dmc.Title("AI Assistant", order=1, fw="bold", mb="lg"),
+                dmc.Paper(
+                    [
+                        dmc.Stack(
+                            [
+                                dmc.Group(
+                                    [
+                                        dmc.TextInput(
+                                            id="chat-prompt",
+                                            placeholder="Ask me anything...",
+                                            style={"width": "100%"},
+                                            leftSection=DashIconify(icon="radix-icons:chat-bubble"),
+                                            size="md",
+                                            radius="md",
+                                            n_submit=0,  # Enable Enter key submissions
+                                        ),
+                                        dmc.Button(
+                                            "Send",
+                                            id="submit-chat",
+                                            variant="filled",
+                                            color="blue",
+                                            radius="md",
+                                            size="md",
+                                            rightSection=DashIconify(icon="radix-icons:paper-plane"),
+                                            n_clicks=0,
+                                        ),
+                                    ],
+                                    align="flex-end",
+                                    grow=True,
+                                    style={"marginBottom": "20px"},
+                                ),
+                                dmc.Title("Response", order=5, c="dimmed", mb="md"),
+                                dmc.Paper(
+                                    id="chat-response-window",
+                                    p="md",
+                                    withBorder=True,
+                                    radius="md",
+                                    style={
+                                        "minHeight": "300px",
+                                        "maxHeight": "500px",
+                                        "overflowY": "auto",
+                                        "whiteSpace": "pre-wrap",
+                                        "fontFamily": "monospace",
+                                        "backgroundColor": "#f8f9fa",
+                                    },
+                                ),
+                            ],
+                            gap="md",
+                        )
+                    ],
+                    shadow="sm",
+                    p="xl",
+                    withBorder=True,
+                    radius="md",
+                    style={"backgroundColor": "white"},
+                ),
+                dmc.Text(
+                    "Powered by Ollama", 
+                    ta="center", 
+                    c="dimmed", 
+                    size="sm", 
+                    mt="lg"
+                )
+            ],
+            align="stretch",
+            gap="xl",
+        )
+    ],
+    size="lg",
+    px="md",
+    py="xl",
+    style={"maxWidth": "900px"},
 )
 
 # --- Backend Route for Streaming ---

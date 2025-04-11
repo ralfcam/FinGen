@@ -64,12 +64,14 @@ app.layout = html.Div([
 
 ## Dash Mantine Components
 
-This application uses the Dash Mantine Components library for its UI components. Important notes:
+This application uses the Dash Mantine Components library (v1.0.0) for its UI components. Important notes:
 
-- For layout, use `dmc.Grid` and `dmc.GridCol` (not Row/Col which don't exist in dmc)
-- Set column width using the `span` prop (e.g., `span=6` for half-width, `span=12` for full-width)
-- Cards are created with `dmc.Card` and content goes directly inside (there is no CardBody component)
-- Add padding to cards with `p="md"` instead of using a separate CardBody component
+- For layout, use `dmc.SimpleGrid` instead of Grid/GridCol combinations
+- Set column width using `style={"gridColumn": "span X"}` (where X is 1-12, e.g., `span 6` for half-width)
+- Use `justify="space-between"` in `dmc.Group` (not `position="apart"`)
+- Use `leftSection` for Button icons (not `leftIcon`)
+- Cards are created with `dmc.Paper` with `withBorder=True`
+- Add padding to components with `p="md"`
 
 ### Property Changes in dash-mantine-components 1.0.0
 
@@ -83,4 +85,5 @@ Many props have been shortened in version 1.0.0:
 
 - Python 3.8+
 - Dash 2.5.0+ (for Pages support)
+- dash-mantine-components 1.0.0
 - Other dependencies listed in requirements.txt 

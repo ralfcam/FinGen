@@ -64,8 +64,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Kill any existing Python processes that might be running the app
-taskkill /f /im python.exe /fi "WINDOWTITLE eq C:\Users\joser\PycharmProjects\FinGen*" >nul 2>&1
 
 :: Run the application with custom environment variable to avoid log file permission issues
 echo Starting FinGen...
@@ -83,4 +81,7 @@ echo Log file created at %LOGFILE%
 if %APP_EXIT_CODE% neq 0 (
     echo Application exited with errors. See %LOGFILE% for details.
     exit /b %APP_EXIT_CODE%
+) else (
+    echo FinGen service started successfully! The service is now running in the background.
+    exit 0
 ) 

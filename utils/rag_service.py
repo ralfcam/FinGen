@@ -70,8 +70,10 @@ def get_vector_store() -> Optional[Chroma]:
     global _vector_store
     if _vector_store is None:
         if not os.path.exists(VECTOR_STORE_DIR):
-            logger.warning(f"Vector store directory {VECTOR_STORE_DIR} not found. 
-Please run initialize_documents() first or ensure it exists.")
+            logger.warning(
+                f"Vector store directory {VECTOR_STORE_DIR} not found. "
+                f"Please run initialize_documents() first or ensure it exists."
+            )
             return None
         try:
             embedding_func = get_embedding_function()

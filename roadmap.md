@@ -35,6 +35,7 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 - ✅ Ensure compatibility with dash-mantine-components v1.0.0
 - ✅ Refine component usage based on library specifications
 - ✅ Establish best practices for component implementation
+- ✅ Refactor LLM interaction logic into dedicated service module
 
 ### Enhanced Analysis and Knowledge Graph Foundations
 
@@ -57,6 +58,7 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 ### Multi-Agent Framework and Risk Assessment
 
 **Multi-Agent System Architecture**
+- ✅ Abstract core LLM interaction into a reusable service
 - Implement specialized agent framework for different financial domains
 - Design agent coordination mechanisms
 - Develop agent training pipeline using financial datasets

@@ -12,8 +12,10 @@ from dash import (
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 from flask import request, Response
-from ollama import Client  # Changed from ollama_python.client import Ollama
 import json # Import json for error handling
+
+# Import the LLM service functions
+from utils.llm_service import stream_llm_response
 
 # Register this page with Dash
 register_page(
@@ -25,18 +27,6 @@ register_page(
         '/assets/external/highlight.min.js'
     ]
 )
-
-# --- Ollama Configuration ---
-# Consider moving these to a config file or environment variables
-OLLAMA_BASE_URL = "http://localhost:11434" # Default Ollama API URL
-OLLAMA_MODEL = "deepseek-r1:14b" # Default model to use
-
-try:
-    # Initialize the Ollama client properly
-    ollama_client = Client(host=OLLAMA_BASE_URL)  # Changed from Ollama to Client
-except Exception as e:
-    print(f"Error initializing Ollama client: {e}")
-    ollama_client = None # Handle initialization error
 
 # --- Layout ---
 layout = dmc.Container(
@@ -121,43 +111,13 @@ layout = dmc.Container(
 # Use dash.get_app() to access the server instance in a multi-page app context
 @dash.get_app().server.route("/streaming-chat", methods=["POST"])
 def streaming_chat():
-    if not ollama_client:
-        return Response(json.dumps({"error": "Ollama client not initialized"}), status=503, mimetype='application/json')
-
     try:
         user_prompt = request.json["prompt"]
         print(f"Received prompt: {user_prompt}") # Debug print
 
-        # Format messages for Ollama chat endpoint
-        messages = [{'role': 'user', 'content': user_prompt}]
-
         def response_stream():
-            try:
-                # Use the chat method from ollama client with stream=True
-                stream = ollama_client.chat(
-                    model=OLLAMA_MODEL,
-                    messages=messages,
-                    stream=True
-                )
-                print("Stream started...") # Debug print
-                for chunk in stream:
-                    # Handle the response structure from ollama Client
-                    if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
-                        content = chunk.message.content
-                        yield content
-                    # Fallback to dictionary access if it's returned as a dict
-                    elif isinstance(chunk, dict):
-                        if 'message' in chunk and 'content' in chunk['message']:
-                            content = chunk['message']['content']
-                            yield content
-                        # Handle potential errors in the stream
-                        elif 'error' in chunk:
-                            print(f"Error in stream chunk: {chunk['error']}")
-                            yield f"\n\n[Error: {chunk['error']}]\n"
-                print("Stream finished.") # Debug print
-            except Exception as e:
-                print(f"Error during streaming: {e}")
-                yield f"\n\n[Error generating response: {e}]\n"
+            # Use the stream_llm_response function from our service module
+            yield from stream_llm_response(user_prompt)
 
         return Response(response_stream(), mimetype="text/event-stream") # Use text/event-stream for SSE
 

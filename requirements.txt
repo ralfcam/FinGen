@@ -1,4 +1,19 @@
+ollama
 pandas==2.2.3
 dash>=2.18.00
 dash-mantine-components==1.0.0
 dash-iconify
+networkx
+
+# LLM and RAG dependencies
+langchain>=0.1.0
+langchain-community>=0.0.13
+langchain-core>=0.1.10
+langchain-text-splitters>=0.0.1
+chromadb>=0.4.22
+# Optional: for more document type support
+unstructured>=0.12.0
+pypdf>=4.0.0
+
+# Optional: for monitoring and tracing
+# langsmith

@@ -1,12 +1,18 @@
 """
-LLM Service module for handling interactions with Ollama.
-Provides centralized functionality for initializing the client and streaming responses.
+LLM Service module for handling interactions with Large Language Models.
+Provides centralized functionality for initializing clients and streaming responses.
+Uses Langchain for better integration with other components.
 """
 
 import os
 import logging
-from typing import Generator, Dict, Any
-from ollama import Client
+from typing import Generator, Dict, Any, List, Optional
+
+# Langchain imports
+from langchain_community.chat_models import ChatOllama
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableConfig
 
 # Get logger
 logger = logging.getLogger(__name__)
@@ -14,34 +20,40 @@ logger = logging.getLogger(__name__)
 # Get configuration from environment variables with defaults
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "deepseek-r1:14b")
+OLLAMA_TEMPERATURE = float(os.environ.get("OLLAMA_TEMPERATURE", "0.7"))
 
 # Singleton client instance
-_ollama_client = None
+_langchain_ollama_client = None
 
-def get_ollama_client() -> Client:
+def get_llm_client() -> ChatOllama:
     """
-    Get or initialize the Ollama client.
+    Get or initialize the Langchain ChatOllama client.
     Uses a singleton pattern to avoid reinitializing on every call.
     
     Returns:
-        Client: Initialized Ollama client
+        ChatOllama: Initialized Langchain ChatOllama client
         
     Raises:
         ConnectionError: If client initialization fails
     """
-    global _ollama_client
-    if _ollama_client is None:
+    global _langchain_ollama_client
+    if _langchain_ollama_client is None:
         try:
-            _ollama_client = Client(host=OLLAMA_BASE_URL)
-            logger.info(f"Ollama client initialized successfully for host {OLLAMA_BASE_URL}")
+            _langchain_ollama_client = ChatOllama(
+                base_url=OLLAMA_BASE_URL,
+                model=OLLAMA_MODEL,
+                temperature=OLLAMA_TEMPERATURE,
+            )
+            logger.info(f"Langchain ChatOllama client initialized successfully for model {OLLAMA_MODEL} at {OLLAMA_BASE_URL}")
         except Exception as e:
-            logger.error(f"Error initializing Ollama client at {OLLAMA_BASE_URL}: {e}")
-            raise ConnectionError(f"Failed to initialize Ollama client: {e}") from e
-    return _ollama_client
+            logger.error(f"Error initializing Langchain ChatOllama client: {e}")
+            raise ConnectionError(f"Failed to initialize Langchain ChatOllama client: {e}") from e
+    return _langchain_ollama_client
 
 def stream_llm_response(prompt: str) -> Generator[str, None, None]:
     """
     Stream responses from the LLM based on the given prompt.
+    Uses Langchain for streaming.
     
     Args:
         prompt (str): User prompt to send to the LLM
@@ -50,36 +62,33 @@ def stream_llm_response(prompt: str) -> Generator[str, None, None]:
         str: Content chunks from the LLM response
     """
     try:
-        client = get_ollama_client()
-        messages = [{'role': 'user', 'content': prompt}]
+        llm = get_llm_client()
+        messages = [HumanMessage(content=prompt)]
         
-        logger.info(f"Starting Ollama stream with model {OLLAMA_MODEL}")
-        stream = client.chat(
-            model=OLLAMA_MODEL,
-            messages=messages,
-            stream=True
-        )
+        logger.info(f"Starting Langchain stream with model {OLLAMA_MODEL}")
         
-        for chunk in stream:
-            # Handle the response structure from ollama Client
-            if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
-                content = chunk.message.content
-                yield content
-            # Fallback to dictionary access if it's returned as a dict
-            elif isinstance(chunk, dict):
-                if 'message' in chunk and 'content' in chunk['message']:
-                    content = chunk['message']['content']
-                    yield content
-                # Handle potential errors in the stream
-                elif 'error' in chunk:
-                    logger.error(f"Error in Ollama stream chunk: {chunk['error']}")
-                    yield f"\n\n[Error: {chunk['error']}]\n"
+        # Stream the response
+        for chunk in llm.stream(messages):
+            if hasattr(chunk, 'content'):
+                yield chunk.content
         
-        logger.info("Ollama stream finished successfully")
+        logger.info("Langchain stream finished successfully")
         
     except ConnectionError as e:
-        logger.error(f"Connection error during Ollama streaming: {e}")
+        logger.error(f"Connection error during Langchain streaming: {e}")
         yield f"\n\n[Error: Could not connect to Ollama service. Please ensure it's running and accessible at {OLLAMA_BASE_URL}]\n"
     except Exception as e:
-        logger.exception(f"Unexpected error during Ollama streaming: {e}")
-        yield f"\n\n[Error generating response: {e}]\n" 
+        logger.exception(f"Unexpected error during Langchain streaming: {e}")
+        yield f"\n\n[Error generating response: {e}]\n"
+
+# For backward compatibility
+def get_ollama_client() -> ChatOllama:
+    """
+    Legacy function for backward compatibility.
+    Now returns the Langchain ChatOllama client.
+    
+    Returns:
+        ChatOllama: The Langchain ChatOllama client
+    """
+    logger.warning("get_ollama_client() is deprecated, use get_llm_client() instead")
+    return get_llm_client() 

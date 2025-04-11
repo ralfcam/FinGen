@@ -1,79 +1,99 @@
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
     clientside: {
-        streaming_GPT: async function streamingGPT(n_clicks, prompt) {
+        // Renamed function for clarity
+        streaming_Chat_Handler: async function(n_clicks, states) {
+            // states will be an array: [promptValue, chatMode, sessionId]
+            const prompt = states[0];
+            const chatMode = states[1];
+            const sessionId = states[2];
             
-            // Use the ID from the new chat page layout
+            // Skip processing if no clicks, no prompt, or (in agent mode) no session ID
+            if (!n_clicks || !prompt || (chatMode === 'agent' && !sessionId)) {
+                // Check if it's just missing session ID temporarily during load
+                if (chatMode === 'agent' && !sessionId) {
+                    console.warn("Agent mode selected, but session ID not yet available. Please wait a moment and try again.");
+                    // Optionally provide user feedback here
+                    return true; // Keep button disabled briefly
+                }
+                return false; // Enable the button if no click or prompt
+            }
+            
             const responseWindow = document.querySelector("#chat-response-window");
-            
-            // Check if the element exists
             if (!responseWindow) {
                 console.error("Response window element (#chat-response-window) not found.");
-                return true; // Return true to keep the button disabled if element not found
+                return true; // Keep button disabled
             }
 
-            // Reset content
-            responseWindow.innerHTML = "";
+            // Clear only *before* starting a new stream
+            responseWindow.innerHTML = ''; 
             
-            // "marked.js" is used to parse the incoming stream
-            // it is also a good idea to state in the prompt that the "response should be markdown formatted"
-            // this definition changes the color scheme of the parsed code. If your use-case does not include parsing code, you can remove this part, as well as "asssets/external/highlight.min.js" and "asssets/external/markdown-code.css"
-            // if your application use-case includes parsing code and wish to change color scheme of the parsed code, you can do so in "asssets/external/markdown-code.css"
-            // alternatively, you can go to "https://highlightjs.org/static/demo/" to find a theme you like and then download it from "https://github.com/highlightjs/highlight.js/tree/main/src/styles"
-            marked.setOptions({
-                highlight: function(code) {
-                    // Ensure hljs is loaded
-                    if (typeof hljs !== 'undefined') {
-                        return hljs.highlightAuto(code).value;
+            // Configure marked.js (ensure it's loaded via external_scripts in chat.py)
+            if (typeof marked !== 'undefined') {
+                 marked.setOptions({
+                    highlight: function(code) {
+                        if (typeof hljs !== 'undefined') {
+                            return hljs.highlightAuto(code).value;
+                        }
+                        return code; 
                     }
-                    return code; // Return raw code if highlight.js is not available
-                }
-            });
+                 });
+            } else {
+                 console.warn("marked.js not loaded. Markdown rendering will be basic.");
+            }
 
             try {
-                // Send the messages to the server to get the streaming response
+                // Send request to the backend endpoint
                 const response = await fetch("/streaming-chat", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({ prompt }),
+                    // Send prompt, mode, and session ID
+                    body: JSON.stringify({ 
+                        prompt: prompt, 
+                        mode: chatMode, 
+                        session_id: sessionId 
+                    }),
                 });
 
                 if (!response.ok) {
-                     // Handle HTTP errors (e.g., 500, 503)
                      const errorData = await response.json().catch(() => ({ error: `HTTP error ${response.status}` }));
                      console.error("Server error:", errorData);
                      responseWindow.innerHTML = `<p style="color: red;">Error: ${errorData.error || `Failed to fetch stream (${response.status})`}</p>`;
                      return false; // Re-enable button on error
                 }
 
-                // Create a new TextDecoder to decode the streamed response text
                 const decoder = new TextDecoder();
-                
-                // Set up a new ReadableStream to read the response body
                 const reader = response.body.getReader();
-                let chunks = "";
+                let accumulatedChunks = ""; // Accumulate chunks for parsing
                 
-                // Read the response stream as chunks and append them to the chat log
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    chunks += decoder.decode(value, { stream: true }); // Pass stream: true for potentially better handling of multi-byte chars
+                    accumulatedChunks += decoder.decode(value, { stream: true });
 
-                    // Debounce or throttle rendering if performance becomes an issue
-                    const htmlText = marked.parse(chunks); // Parse markdown
-                    responseWindow.innerHTML = htmlText;
-                    // Optional: Scroll to bottom
-                    responseWindow.scrollTop = responseWindow.scrollHeight;
+                    // Render accumulated markdown
+                    try {
+                        if (typeof marked !== 'undefined') {
+                            responseWindow.innerHTML = marked.parse(accumulatedChunks);
+                        } else {
+                            // Basic rendering if marked is unavailable
+                            responseWindow.innerText = accumulatedChunks;
+                        }
+                        responseWindow.scrollTop = responseWindow.scrollHeight;
+                    } catch (parseError) {
+                        console.error("Markdown parsing error:", parseError);
+                        // Display raw text if parsing fails
+                        responseWindow.innerText = accumulatedChunks;
+                    }
                 }
             } catch (error) {
                 console.error("Streaming error:", error);
                 responseWindow.innerHTML += `<p style="color: red;">\n\n[Error during streaming: ${error}]</p>`;
-                 // Optional: Scroll to bottom even on error
                 responseWindow.scrollTop = responseWindow.scrollHeight;
             }
             
-            // return false to enable the submit button again (disabled=false)
+            // Return false to re-enable the submit button
             return false;
           }
     }

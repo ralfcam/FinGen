@@ -1,4 +1,5 @@
 import dash
+import uuid # For generating session IDs
 from dash import (
     html,
     dcc,
@@ -11,11 +12,13 @@ from dash import (
 )
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-from flask import request, Response
-import json # Import json for error handling
+from flask import request, Response, jsonify # Added jsonify for potential async errors
+import json
+import asyncio # Needed for running async agent handler
 
-# Import the LLM service functions
+# Import the LLM and Agent service functions
 from utils.llm_service import stream_llm_response
+from utils.agent_service import handle_agent_message, get_agent_executor # Import agent handler
 
 # Register this page with Dash
 register_page(
@@ -28,9 +31,13 @@ register_page(
     ]
 )
 
+# Initialize the agent executor on startup (optional, but can catch compile errors early)
+# get_agent_executor()
+
 # --- Layout ---
 layout = dmc.Container(
     [
+        dcc.Store(id='session-id-store'), # Store for the unique session ID
         dmc.Stack(
             [
                 dmc.Title("AI Assistant", order=1, fw="bold", mb="lg"),
@@ -38,6 +45,17 @@ layout = dmc.Container(
                     [
                         dmc.Stack(
                             [
+                                dmc.SegmentedControl(
+                                    id="chat-mode-selector",
+                                    value="direct", # Default mode
+                                    data=[
+                                        {"label": "Direct Chat", "value": "direct"},
+                                        {"label": "Agent Chat (with Memory)", "value": "agent"},
+                                    ],
+                                    mb="lg",
+                                    color="blue",
+                                    fullWidth=True,
+                                ),
                                 dmc.Group(
                                     [
                                         dmc.TextInput(
@@ -90,7 +108,7 @@ layout = dmc.Container(
                     style={"backgroundColor": "white"},
                 ),
                 dmc.Text(
-                    "Powered by Ollama", 
+                    "Powered by Ollama & LangGraph", 
                     ta="center", 
                     c="dimmed", 
                     size="sm", 
@@ -107,33 +125,74 @@ layout = dmc.Container(
     style={"maxWidth": "900px"},
 )
 
-# --- Backend Route for Streaming ---
-# Use dash.get_app() to access the server instance in a multi-page app context
+# --- Backend Route for Streaming (Now Async) ---
 @dash.get_app().server.route("/streaming-chat", methods=["POST"])
-def streaming_chat():
-    try:
-        user_prompt = request.json["prompt"]
-        print(f"Received prompt: {user_prompt}") # Debug print
+async def streaming_chat(): # Make the route async
+    data = await request.get_json()
+    user_prompt = data.get("prompt")
+    mode = data.get("mode", "direct") # Default to direct chat
+    session_id = data.get("session_id")
 
-        def response_stream():
-            # Use the stream_llm_response function from our service module
-            yield from stream_llm_response(user_prompt)
+    if not user_prompt:
+        return Response(json.dumps({"error": "Prompt is required"}), status=400, mimetype='application/json')
+    if mode == "agent" and not session_id:
+         return Response(json.dumps({"error": "Session ID is required for agent mode"}), status=400, mimetype='application/json')
 
-        return Response(response_stream(), mimetype="text/event-stream") # Use text/event-stream for SSE
+    print(f"Received request - Mode: {mode}, Session: {session_id}, Prompt: {user_prompt[:50]}...")
 
-    except Exception as e:
-        print(f"Error in /streaming-chat endpoint: {e}")
-        return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+    async def response_stream_generator():
+        try:
+            if mode == "agent":
+                # Call the async agent message handler
+                async for chunk in handle_agent_message(session_id, user_prompt):
+                    yield chunk
+            else: # Default to direct chat
+                # Call the synchronous LLM response stream (needs to be run in executor or adapted)
+                # For simplicity here, we'll assume stream_llm_response can yield directly
+                # In a real async app, you might run sync generators in an executor
+                 for chunk in stream_llm_response(user_prompt):
+                    yield chunk
+        except Exception as e:
+            print(f"Error during streaming generation ({mode} mode): {e}")
+            yield f"\n\n[Error: Server error processing request in {mode} mode.]\n"
+            
+    return Response(response_stream_generator(), mimetype="text/event-stream")
 
+# --- Clientside Callbacks --- 
 
-# --- Clientside Callbacks ---
+# Generate or retrieve session ID on load
+clientside_callback(
+    """
+    function(n_intervals) {
+        // Runs only once on initial load (n_intervals === 1)
+        if (n_intervals === 1) {
+            let sessionId = sessionStorage.getItem('finGenSessionId');
+            if (!sessionId) {
+                sessionId = crypto.randomUUID();
+                sessionStorage.setItem('finGenSessionId', sessionId);
+                console.log('Generated new session ID:', sessionId);
+            }
+             console.log('Using session ID:', sessionId);
+            return sessionId;
+        }
+        return dash_clientside.no_update;
+    }
+    """,
+    Output('session-id-store', 'data'),
+    Input('url', 'pathname'), # Trigger on initial page load via URL change
+    # Use dcc.Interval as a trigger if url doesn't work reliably for initial load
+    # Input(dcc.Interval(id='init-interval', max_intervals=1, interval=1), 'n_intervals')
+    prevent_initial_call=False # Run on load
+)
 
 # JS callback to send the question to the flask API and handle the response stream
 clientside_callback(
-    ClientsideFunction(namespace="clientside", function_name="streaming_GPT"),
+    ClientsideFunction(namespace="clientside", function_name="streaming_Chat_Handler"),
     Output("submit-chat", "disabled"), # Disable button during stream
     Input("submit-chat", "n_clicks"),
-    State("chat-prompt", "value"),
+    [State("chat-prompt", "value"),
+     State("chat-mode-selector", "value"), # Get the selected mode
+     State("session-id-store", "data")], # Get the session ID
     prevent_initial_call=True,
 )
 
@@ -160,21 +219,24 @@ clientside_callback(
 # Optional: Add a callback to handle Enter key press in the input field
 clientside_callback(
     """
-    function(inputValue) {
-        // This function doesn't trigger the submit, but enables/disables it.
-        // Actual submission is handled by the button click or another callback if needed.
-        // We return no_update because this callback doesn't change component props directly.
-        // The primary logic for submission remains tied to the button click.
-
-        // If you want Enter key to trigger submission, you'd need a different setup,
-        // likely involving dcc.Input's 'n_submit' property and potentially
-        // combining callbacks or using pattern-matching callbacks if multiple
-        // triggers are needed. For simplicity, we stick to the button click here.
-
+    function(n_submit, inputValue) { // Need inputValue to pass it along
+        // This function only *enables* submission via Enter key
+        // It doesn't directly call the streaming function, but relies on the 
+        // streaming_GPT clientside function being triggered by the button's n_clicks changing.
+        // To make Enter work directly, we'd need to simulate a button click or refactor.
+        
+        // A simple approach to trigger submit on Enter:
+        if (n_submit > 0) {
+            // Find the button and click it programmatically
+            const button = document.getElementById('submit-chat');
+            if (button) {
+                button.click();
+            }
+        }
         return window.dash_clientside.no_update; // Indicate no change to outputs
     }
     """,
-    Output("submit-chat", "id"), # Dummy output, required by Dash
+    Output("submit-chat", "n_clicks"), # Output to the button's n_clicks to trigger it
     Input("chat-prompt", "n_submit"),
     State("chat-prompt", "value"),
     prevent_initial_call=True,

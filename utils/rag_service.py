@@ -9,11 +9,14 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Generator, Optional, Union
 
-# Langchain imports
+# Langchain imports - using specific packages to prevent deprecation
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.huggingface import HuggingFaceEmbeddings
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 
 # Import our llm_service for LLM access
 from .llm_service import get_llm_client

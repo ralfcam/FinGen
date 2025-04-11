@@ -238,18 +238,72 @@ def prune_memories(state: EnhancedMessageState) -> Dict:
     # for the *next* node, so we return an empty dict.
     return {}
 
-# --- Placeholder for Graph Compilation & API Handler ---
-# (To be implemented in Phase 3 and 4)
+# --- Graph Construction & Compilation ---
+
+_agent_executor = None # Singleton for the compiled graph
+
+def should_prune_memory(state: EnhancedMessageState) -> Literal["prune", "end"]:
+    """Conditional logic to decide whether to prune long-term memory."""
+    # Note: This condition currently relies on the count of *retrieved* memories
+    # in the current state turn, not the total size of the vector store for the session.
+    # A more robust check might involve querying the vector store count directly,
+    # but that adds latency. Using the state count is a simpler proxy.
+    if len(state.long_term) >= MEMORY_PRUNING_THRESHOLD:
+        logger.info(f"Memory pruning condition met (>= {MEMORY_PRUNING_THRESHOLD} retrieved memories). Routing to prune.")
+        return "prune"
+    else:
+        logger.info("Memory pruning condition not met. Routing to end.")
+        return "end"
 
 def get_agent_executor():
-    """Placeholder for building and compiling the agent graph.
+    """Builds and compiles the stateful agent graph using LangGraph.
     
     Returns:
-        Compiled LangGraph application.
+        Compiled LangGraph application, or None if compilation fails.
     """
-    logger.warning("Agent graph compilation (get_agent_executor) is not yet implemented.")
-    # Phase 3: Build and compile the graph here
-    return None
+    global _agent_executor
+    if _agent_executor is not None:
+        return _agent_executor
+        
+    logger.info("Building agent graph...")
+    try:
+        builder = StateGraph(EnhancedMessageState)
+
+        # Add nodes
+        builder.add_node("retrieve", retrieve_context)
+        builder.add_node("generate", generate_verified_response)
+        builder.add_node("prune", prune_memories)
+
+        # Define edges
+        builder.set_entry_point("retrieve")
+        builder.add_edge("retrieve", "generate")
+        
+        # Conditional edge after generation: either prune or end
+        builder.add_conditional_edges(
+            "generate",
+            should_prune_memory, # Function to decide the next node
+            {
+                "prune": "prune",  # If should_prune_memory returns "prune", go to prune node
+                "end": END       # If should_prune_memory returns "end", finish the graph
+            }
+        )
+        
+        # After pruning, the graph ends
+        builder.add_edge("prune", END)
+
+        # Compile the graph
+        logger.info("Compiling agent graph with checkpointer and interrupt...")
+        _agent_executor = builder.compile(
+            checkpointer=memory_checkpointer,
+            interrupt_before=["prune"], # Allow interruption before pruning step
+            debug=os.environ.get("FINGEN_LANGGRAPH_DEBUG", "False").lower() == "true"
+        )
+        logger.info("Agent graph compiled successfully.")
+        return _agent_executor
+        
+    except Exception as e:
+        logger.exception("Failed to build or compile agent graph!")
+        return None
 
 async def handle_agent_message(session_id: str, message: str) -> Generator[str, None, None]:
     """

@@ -16,13 +16,17 @@ from langchain_core.documents import Document
 
 # LangGraph imports
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.sqlite import AsyncSqliteSaver
+# Use MemorySaver for now to avoid import issues
+from langgraph.checkpoint.memory import MemorySaver
 
 # Local imports
 from .llm_service import get_llm_client
-from .rag_service import get_vector_store, initialize_documents # Assuming initialize_documents might be called elsewhere
+from .rag_service import get_vector_store, initialize_documents
 
-# Get logger
+# Try importing from langchain_community as a fallback
+from langchain_community.utilities.sql_database import SQLDatabase # Example placeholder import
+
+# Get logger *before* potential import errors that use it
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -46,10 +50,9 @@ class EnhancedMessageState(BaseModel):
 
 # --- Checkpointer for Short-Term Memory / State Persistence ---
 
-# Use in-memory SQLite for simplicity in this example.
-SQLITE_CHECKPOINT_PATH = os.environ.get("FINGEN_SQLITE_CHECKPOINT_PATH", ":memory:")
-memory_checkpointer = AsyncSqliteSaver.from_conn_string(SQLITE_CHECKPOINT_PATH)
-logger.info(f"LangGraph checkpointer configured with: {SQLITE_CHECKPOINT_PATH}")
+# Using in-memory checkpointer for now
+memory_checkpointer = MemorySaver()
+logger.info("LangGraph checkpointer configured with: MemorySaver (in-memory)")
 
 # --- Helper Functions ---
 

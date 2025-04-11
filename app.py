@@ -128,4 +128,4 @@ app.layout = MantineProvider(
 )
 
 if __name__ == '__main__':
-    app.run(debug=False)  # Enable debug mode to see more detailed error messages
+    app.run(debug=True)  # Enable debug mode to see more detailed error messages

@@ -19,8 +19,11 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
   - Set up secure FTP/HTTP endpoints for automated document retrieval  
   - Integrate with external APIs (e.g., EDGAR or [sec-api library](https://pypi.org/project/sec-api/)) for financial filings  
   - Implement a data persistence system - storage solutions for versioning and archival of incoming documents
-  - Implement RAG pipeline using Langchain (DocumentLoaders, TextSplitters, Embeddings, VectorStore)
-  - Set up persistent vector database for document retrieval (Chroma/FAISS)
+- Implement RAG pipeline using Langchain (DocumentLoaders, TextSplitters, Embeddings, VectorStore)
+- Set up persistent vector database for document retrieval (Chroma/FAISS)
+  - Configure Chroma for optimized search (e.g., cosine distance)
+  - Implement metadata filtering in vector store (session_id, timestamps)
+- Implement graph state persistence using SQLite (`AsyncSqliteSaver`) for short-term memory and session continuity
 
 **Basic Financial Analysis Features**
 - ✅ Key metric extraction from financial statements
@@ -33,6 +36,7 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 - ✅ Report generation capabilities
 - ✅ Interactive chat interface with LLM integration
 - Extend chat interface to support multiple interaction modes (direct chat, RAG, agent-based)
+- Implement session management on the frontend/backend interaction layer
 
 **Technical Stability**
 - ✅ Ensure compatibility with dash-mantine-components v1.0.0
@@ -41,7 +45,11 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 - ✅ Refactor LLM interaction logic into dedicated service module
 - Migrate from direct Ollama API to Langchain ChatOllama for better interoperability
 - Implement proper LLM tracing and monitoring (LangSmith integration)
-- Develop service modules for different LLM interaction patterns (chat, RAG, agent)
+- **Develop stateful agent architecture using LangGraph (`StateGraph`, Pydantic `BaseModel` state)**
+- **Implement distinct short-term (SQLite) and long-term (VectorStore) memory management within the agent state**
+- **Add context verification layer within agent workflows**
+- **Incorporate interrupt points in LangGraph for monitoring and potential Human-in-the-Loop (HITL) interactions** [2]
+- Develop service modules for different LLM interaction patterns (chat, RAG, **stateful agent**)
 
 ### Enhanced Analysis and Knowledge Graph Foundations
 
@@ -50,6 +58,7 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 - Develop taxonomy of financial terms and relationships
 - Build preliminary knowledge graph architecture
 - Implement Retrieval Augmented Generation based on financial knowledge corpus
+  - **Enhance retrieval with hybrid search and temporal filtering logic**
 - Create specialized retrievers for different types of financial information
 
 **Advanced Financial Statement Analysis**
@@ -68,15 +77,19 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 **Multi-Agent System Architecture**
 - ✅ Abstract core LLM interaction into a reusable service
 - Implement specialized agent framework for different financial domains
-  - Leverage Langchain Agents and Tools framework
+  - Leverage Langchain Agents and **LangGraph** for stateful execution
   - Define RAG-powered financial knowledge retriever as core agent tool
+    - **Utilize session-isolated retrieval based on `session_id` metadata**
   - Implement calculator and data analysis tools for financial metrics
 - Design agent coordination mechanisms
-  - Create agent orchestration logic with Langchain
+  - Create agent orchestration logic with Langchain **and LangGraph state transitions**
   - Build prompt templates for specialized financial tasks
+  - **Implement conditional graph logic based on agent state (e.g., memory size)**
 - Develop agent training pipeline using financial datasets
 - ✅ Streaming response capabilities for real-time agent interactions
 - Implement agent tracing and debugging capabilities
+  - **Leverage LangGraph visualization and LangSmith**
+- **Implement automatic memory pruning workflows within the agent graph**
 
 **Risk Assessment Features**
 - ✅ Liquidity and market exposure analysis
@@ -194,3 +207,7 @@ Roadmap for developing FinSignal's Multi-Agent GraphRAG platform. This roadmap p
 - Advanced RAG techniques (hybrid search, re-ranking, query transformations)
 
 Throughout this roadmap implementation, we'll continuously collect user feedback and iterate on features to ensure they meet the needs of financial analysts. This progressive approach allows us to deliver value early while building toward the sophisticated Multi-Agent GraphRAG architecture that will differentiate FinSignal in the market.
+
+Citations:
+[1] @https://theneuralmaze.substack.com/p/can-agents-get-nostalgic-about-the 
+[2] @https://blog.dailydoseofds.com/p/copilotkit-coagents-build-human-in?r=w8rj

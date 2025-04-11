@@ -3,11 +3,15 @@
 // by handling simple interactions without server requests
 
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
-    // Example client-side callback
-    updateOutput: function(n_clicks, value) {
-        if (n_clicks === null) {
-            return window.dash_clientside.no_update;
+    // Main clientside namespace used in callbacks
+    clientside: {
+        // Example client-side callback
+        updateOutput: function(n_clicks, value) {
+            if (n_clicks === null) {
+                return window.dash_clientside.no_update;
+            }
+            return `Client-side processed: ${value}`;
         }
-        return `Client-side processed: ${value}`;
+        // Note: streaming_GPT function is defined in streamingGPT.js
     }
 }); 

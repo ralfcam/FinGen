@@ -54,6 +54,7 @@ import pages.query
 import pages.analysis
 import pages.visualizations
 import pages.reports
+import pages.chat  # Added import for chat page
 
 # Define the main layout
 app.layout = MantineProvider(
@@ -106,6 +107,12 @@ app.layout = MantineProvider(
                         href="/reports",
                         className="nav-link"
                     ),
+                    NavLink(
+                        label="Chat",
+                        leftSection=DashIconify(icon="radix-icons:chat-bubble"),
+                        href="/chat",
+                        className="nav-link"
+                    ),
                 ], gap="md")
             ),
             # Main content - use dash.page_container instead of custom callback
@@ -121,4 +128,4 @@ app.layout = MantineProvider(
 )
 
 if __name__ == '__main__':
-    app.run_server(debug=False)  # Enable debug mode to see more detailed error messages
+    app.run(debug=False)  # Enable debug mode to see more detailed error messages
